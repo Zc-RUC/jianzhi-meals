@@ -231,24 +231,32 @@
 
 <script>
 (function () {
-  /* 主题切换：light / dark / 不设置则跟随系统 */
+  /* 主题切换：跟随系统(auto) → 浅色(light) → 深色(dark) 循环 */
   var THEME_LS = 'jianzhi-theme';
   var themeBtn = document.getElementById('themeBtn');
   function applyTheme(t) {
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-    else document.documentElement.removeAttribute('data-theme');
-    var dark = t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    themeBtn.textContent = dark ? '☀' : '☾';
-    themeBtn.title = dark ? '当前深色，点击切换浅色' : '当前浅色，点击切换深色';
+    else { document.documentElement.removeAttribute('data-theme'); t = 'auto'; }
+    var dark = t === 'dark' || (t === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var label = { auto: '◐', light: '☾', dark: '☀' }[t];
+    var title = { auto: '跟随系统，点击切换浅色', light: '浅色，点击切换深色', dark: '深色，点击切换跟随系统' }[t];
+    themeBtn.textContent = label;
+    themeBtn.title = title;
+    return dark;
   }
-  applyTheme(localStorage.getItem(THEME_LS) || '');
+  applyTheme(localStorage.getItem(THEME_LS) || 'auto');
   themeBtn.addEventListener('click', function () {
-    var cur = document.documentElement.getAttribute('data-theme');
-    var darkNow = cur === 'dark' || (!cur && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    var next = darkNow ? 'light' : 'dark';
+    var order = ['auto', 'light', 'dark'];
+    var cur = document.documentElement.getAttribute('data-theme') || 'auto';
+    var next = order[(order.indexOf(cur) + 1) % 3];
     localStorage.setItem(THEME_LS, next);
     applyTheme(next);
   });
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+      if (!document.documentElement.getAttribute('data-theme')) applyTheme('auto');
+    });
+  }
   var LS = 'jianzhi-records-v1';
   /* 云端同步配置（Cloudflare Worker） */
   var CLOUD_URL = 'https://jianzhi-sync.zhangchong050812.workers.dev';
