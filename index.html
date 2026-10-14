@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>减脂餐 · 京东科技大厦</title>
+<style>
+  :root {
+    --text: #1a1a1a; --sub: #6b6b6b; --faint: #9a9a9a;
+    --border: #e5e5e5; --muted: #f5f5f5; --accent: #2f6fed;
+    --ok: #1a9e54; --warn: #d97706; --danger: #dc2626;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --text:#eee; --sub:#aaa; --faint:#777; --border:#333; --muted:#262626; --accent:#5b8cff; }
+    body { background:#141414; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    color: var(--text); background: #fff;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
+  h1 { font-size: 20px; margin: 8px 0 2px; font-weight: 500; }
+  .meta { font-size: 12px; color: var(--faint); }
+  .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 14px 0; }
+  .stat { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .stat .v { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .tabs { display: flex; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; }
+  .tabs button {
+    border: 1px solid var(--border); background: none; color: var(--text);
+    border-radius: 999px; padding: 5px 14px; font-size: 14px; cursor: pointer;
+  }
+  .tabs button.on { background: var(--text); color: #fff; border-color: var(--text); }
+  @media (prefers-color-scheme: dark) { .tabs button.on { color:#141414; } }
+  .page { display: none; }
+  .page.on { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 500; color: var(--faint); font-size: 12px; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .meal { font-weight: 500; }
+  .sub { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); }
+  .note { font-size: 12px; color: var(--faint); line-height: 1.7; margin-top: 12px; }
+
+  /* 日历 */
+  .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .cal-title { font-size: 15px; font-weight: 500; }
+  .cal-nav button {
+    border: 1px solid var(--border); background: none; color: var(--text);
+    border-radius: 8px; padding: 3px 10px; font-size: 13px; cursor: pointer; margin-left: 4px;
+  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+  .cal-dow { font-size: 11px; color: var(--faint); text-align: center; padding: 2px 0; }
+  .cal-cell {
+    position: relative; height: 30px; border-radius: 8px; border: 1px solid transparent;
+    background: none; cursor: pointer; font-size: 12px; color: var(--text);
+    font-variant-numeric: tabular-nums; padding: 0 0 6px;
+  }
+  .cal-cell:hover { background: var(--muted); }
+  .cal-cell.other { color: var(--faint); }
+  .cal-cell.today { border-color: var(--text); }
+  .cal-cell.sel { background: var(--text); color: #fff; }
+  @media (prefers-color-scheme: dark) { .cal-cell.sel { color:#141414; } }
+  .dots { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; gap: 3px; }
+  .dot { width: 4px; height: 4px; border-radius: 50%; }
+  .dot.m { background: var(--faint); } .dot.w { background: var(--accent); }
+  .cal-cell.sel .dot { background: #fff; }
+  .day-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .day-detail h4 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
+  .entry { display: flex; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 8px; font-size: 13px; }
+  .entry .t { flex: 1; min-width: 0; word-break: break-all; }
+  .entry .p { color: var(--sub); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .entry .w { color: var(--accent); font-weight: 500; white-space: nowrap; }
+  .entry .m2 { font-size: 11px; color: var(--faint); flex-shrink: 0; }
+  .del { border: none; background: none; color: var(--danger); cursor: pointer; font-size: 12px; padding: 0 4px; }
+  .none { font-size: 13px; color: var(--faint); padding: 8px; }
+
+  /* 表单 */
+  .form { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+  .row { display: flex; gap: 8px; }
+  input, select {
+    width: 100%; min-width: 0; padding: 8px 10px; font-size: 14px;
+    border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text);
+  }
+  .btn-primary {
+    background: var(--text); color: #fff; border: none; border-radius: 10px;
+    padding: 9px 16px; font-size: 14px; cursor: pointer;
+  }
+  @media (prefers-color-scheme: dark) { .btn-primary { color:#141414; } }
+  .hint { font-size: 12px; color: var(--faint); }
+  .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
+  .wlist { margin-top: 12px; }
+  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:6px; background:rgba(26,158,84,.12); color:var(--ok); margin-left:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>减脂餐 · 京东科技大厦</h1>
+  <div class="meta">88kg → 75kg · 每日骑行 5km · 美团企业版实测价（2026-10-13）· 数据存本机浏览器</div>
+
+  <div class="stats">
+    <div class="stat"><div class="v">1900–2100</div><div class="l">每日热量 kcal</div></div>
+    <div class="stat"><div class="v">120–140g</div><div class="l">每日蛋白质</div></div>
+    <div class="stat"><div class="v">¥60</div><div class="l">每日餐补（当日清零）</div></div>
+    <div class="stat"><div class="v">≈0.5kg</div><div class="l">每周减重</div></div>
+  </div>
+
+  <div class="tabs">
+    <button data-p="plan" class="on">一周餐单</button>
+    <button data-p="shops">商家比价</button>
+    <button data-p="cal">日历</button>
+    <button data-p="add">记一笔</button>
+    <button data-p="trend">体重趋势</button>
+  </div>
+
+  <!-- 餐单 -->
+  <div class="page on" id="pg-plan">
+    <table>
+      <thead><tr><th>星期</th><th>午餐 550–650 kcal</th><th>晚餐 400–500 kcal</th><th class="num">餐费</th></tr></thead>
+      <tbody>
+        <tr><td class="meal">周一</td><td>麦田归来 · 凤尾虾烤蔬碗<div class="sub">约 345 kcal · ¥33.9</div></td><td>拌将 · 轻食鲜蔬套餐<div class="sub">标注 356 kcal · ¥25.98</div></td><td class="num ok">≈¥60</td></tr>
+        <tr><td class="meal">周二</td><td>超级碗 · 蜜汁鸡腿超级碗<div class="sub">新中关店 · ¥39.9</div></td><td>张亮 · 蔬韵轻食任选 12 样<div class="sub">清汤不喝汤 · ¥32.8</div></td><td class="num warn">≈¥73</td></tr>
+        <tr><td class="meal">周三</td><td>SUPER BOWL · 双拼牛排沙拉<div class="sub">商圈沙拉榜第 1 · ¥27.9</div></td><td>木桑森林 · 双蛋白嫩煎鱼排<div class="sub">免配送费 · ¥30.9</div></td><td class="num ok">≈¥59</td></tr>
+        <tr><td class="meal">周四</td><td>麦田归来 · 牛肉鸡胸双拼碗<div class="sub">招牌 · 353 kcal · ¥33.9</div></td><td>小谷姐姐 · 麻辣拌自选<div class="sub">蛋/鸡胸/豆腐/菌菇/青菜 少酱 · ¥20–25</div></td><td class="num ok">≈¥58</td></tr>
+        <tr><td class="meal">周五</td><td>木桑森林 · 牛油果热辣鸡腿沙拉<div class="sub">¥35.9</div></td><td>轻禾小厨 · 中式健康菜<div class="sub">一荤一素 米饭减半 · ≈¥30</div></td><td class="num ok">≈¥66</td></tr>
+      </tbody>
+    </table>
+    <div class="note">早餐自费 ¥8–10：2 个水煮蛋 + 无糖豆浆 + 玉米/全麦面包。每餐预留约 ¥2.5 打包费；下单前领红包/神券，实测可再减最多 ¥10。额度当日清零，当天用完。酱汁选油醋/零脂分装；麻辣烫清汤、不喝汤、不加方便面油条；周五晚餐可稍放纵。</div>
+  </div>
+
+  <!-- 商家 -->
+  <div class="page" id="pg-shops">
+    <table>
+      <thead><tr><th>商家</th><th>品类</th><th>评分/人均</th><th>距离</th><th class="num">代表价</th></tr></thead>
+      <tbody>
+        <tr><td class="meal">麦田归来·四季轻食</td><td>轻食碗<span class="tag">好评榜1</span></td><td>5.0 / ¥26</td><td>2.2km</td><td class="num">¥29.9–38.9</td></tr>
+        <tr><td class="meal">超级碗 FOODBOWL 新中关</td><td>轻食碗</td><td>4.9 / ¥33</td><td>1.6km</td><td class="num">¥29–47</td></tr>
+        <tr><td class="meal">SUPER BOWL</td><td>沙拉<span class="tag">热销榜1</span></td><td>—</td><td>近</td><td class="num">¥23.9–27.9</td></tr>
+        <tr><td class="meal">木桑森林·轻食健康餐</td><td>沙拉</td><td>4.9 / ¥26</td><td>2.2km</td><td class="num">¥28.9–35.9</td></tr>
+        <tr><td class="meal">轻禾小厨中式健康菜</td><td>中式健康菜</td><td>4.6</td><td>近</td><td class="num">≈¥30</td></tr>
+        <tr><td class="meal">拌将麻辣拌·麻辣烫</td><td>麻辣烫<span class="tag">北京榜1</span></td><td>4.9 / ¥29</td><td>1.7km</td><td class="num">¥25.98 起</td></tr>
+        <tr><td class="meal">张亮麻辣烫 知春路</td><td>麻辣烫</td><td>4.5 / ¥21</td><td>609m</td><td class="num">¥32.8 套餐</td></tr>
+        <tr><td class="meal">小谷姐姐 紫金数码</td><td>麻辣拌</td><td>4.7 / ¥24</td><td>559m</td><td class="num">¥20 起送</td></tr>
+      </tbody>
+    </table>
+    <div class="note">实测一单（麦田归来鸡胸碗 350g + 零脂沙拉汁 + 杂粮饭）：餐品 ¥32.9 + 打包费 ¥2.5 + 配送 ¥0 = ¥35.4，红包后约 ¥25.4。吃腻替换原则：轻食碗哪家有券点哪家；麻辣烫统一"清汤少酱、蛋白质三样以上、不喝汤"。</div>
+  </div>
+
+  <!-- 日历 -->
+  <div class="page" id="pg-cal">
+    <div class="cal-head">
+      <div class="cal-title" id="calTitle"></div>
+      <div class="cal-nav">
+        <button id="prevM">‹</button><button id="todayB">今天</button><button id="nextM">›</button>
+      </div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="day-detail" id="dayDetail"></div>
+  </div>
+
+  <!-- 记一笔 -->
+  <div class="page" id="pg-add">
+    <div class="form">
+      <div class="tabs" style="margin:0;">
+        <button id="typeMeal" class="on">饮食</button>
+        <button id="typeWeight">体重</button>
+      </div>
+      <div class="row">
+        <input id="fDate" type="date" aria-label="日期">
+        <input id="fTime" type="time" aria-label="时间">
+      </div>
+      <div id="mealFields">
+        <div class="row" style="margin-bottom:8px;">
+          <select id="fMeal"><option>早餐</option><option selected>午餐</option><option>晚餐</option><option>加餐</option></select>
+          <input id="fPrice" type="number" min="0" step="0.1" placeholder="花费 ¥（可空）">
+        </div>
+        <input id="fWhat" placeholder="吃了什么，如：麦田归来鸡胸碗">
+      </div>
+      <div id="weightFields" style="display:none;">
+        <input id="fWeight" type="number" min="30" max="200" step="0.1" placeholder="体重 kg，如 87.6">
+      </div>
+      <button class="btn-primary" id="saveBtn">保存</button>
+      <div class="hint">日期时间默认当前，可改成任何一天补记。数据只存在这台设备的浏览器里。</div>
+    </div>
+    <div class="form" style="margin-top:12px;">
+      <div class="hint" style="font-weight:500;color:var(--sub);">手机 / 电脑之间同步</div>
+      <div class="row">
+        <button class="btn-primary" id="exportBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导出数据</button>
+        <button class="btn-primary" id="importBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导入数据</button>
+        <input id="importFile" type="file" accept=".json,application/json" style="display:none;">
+      </div>
+      <div class="hint" id="syncHint">在一台设备导出 → 发到另一台（隔空投送/微信文件传输）→ 导入，自动合并不重复。</div>
+    </div>
+  </div>
+
+  <!-- 趋势 -->
+  <div class="page" id="pg-trend">
+    <div class="stat-row">
+      <div class="stat"><div class="v" id="stNow">—</div><div class="l">最新体重</div></div>
+      <div class="stat"><div class="v" id="stWeek">—</div><div class="l">近 7 天变化</div></div>
+      <div class="stat"><div class="v" id="stGoal">—</div><div class="l">距 75kg 目标</div></div>
+    </div>
+    <svg id="chart" width="100%" height="150" role="img" aria-label="体重趋势图"></svg>
+    <div class="wlist" id="wlist"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var LS = 'jianzhi-records-v1';
+  var meals = [], weights = [];
+  try {
+    var raw = localStorage.getItem(LS);
+    if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; }
+  } catch (e) {}
+  function persist() {
+    try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights })); } catch (e) {}
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function dstr(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  var today = dstr(new Date());
+
+  var tabs = document.querySelectorAll('.tabs > button[data-p]');
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('on'); });
+      b.classList.add('on');
+      document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('on'); });
+      document.getElementById('pg-' + b.dataset.p).classList.add('on');
+      if (b.dataset.p === 'trend') renderTrend();
+    });
+  });
+
+  /* 日历 */
+  var view = new Date(); view.setDate(1);
+  var selDay = today;
+  var grid = document.getElementById('calGrid');
+  function dayHas(ds) {
+    return { m: meals.some(function (e) { return e.date === ds; }), w: weights.some(function (e) { return e.date === ds; }) };
+  }
+  function renderCal() {
+    document.getElementById('calTitle').textContent = view.getFullYear() + ' 年 ' + (view.getMonth() + 1) + ' 月';
+    grid.innerHTML = '';
+    ['一','二','三','四','五','六','日'].forEach(function (d) {
+      var el = document.createElement('div'); el.className = 'cal-dow'; el.textContent = d; grid.appendChild(el);
+    });
+    var start = new Date(view.getFullYear(), view.getMonth(), 1);
+    start.setDate(1 - (start.getDay() + 6) % 7);
+    for (var i = 0; i < 42; i++) {
+      var d = new Date(start); d.setDate(start.getDate() + i);
+      var ds = dstr(d);
+      var cell = document.createElement('button');
+      cell.className = 'cal-cell'; cell.textContent = d.getDate();
+      if (d.getMonth() !== view.getMonth()) cell.classList.add('other');
+      if (ds === today) cell.classList.add('today');
+      if (ds === selDay) cell.classList.add('sel');
+      var has = dayHas(ds);
+      if (has.m || has.w) {
+        var dots = document.createElement('span'); dots.className = 'dots';
+        if (has.m) { var a = document.createElement('span'); a.className = 'dot m'; dots.appendChild(a); }
+        if (has.w) { var b = document.createElement('span'); b.className = 'dot w'; dots.appendChild(b); }
+        cell.appendChild(dots);
+      }
+      (function (dss) { cell.addEventListener('click', function () { selDay = dss; renderCal(); renderDay(); }); })(ds);
+      grid.appendChild(cell);
+    }
+  }
+  function entryRow(kind, e, onDel) {
+    var row = document.createElement('div'); row.className = 'entry';
+    var meta = document.createElement('span'); meta.className = 'm2';
+    var t = document.createElement('span'); t.className = 't';
+    var val = document.createElement('span');
+    if (kind === 'm') {
+      meta.textContent = (e.meal || '') + (e.time ? ' ' + e.time : '');
+      t.textContent = e.what; val.className = 'p';
+      if (e.price) val.textContent = '¥' + Number(e.price).toFixed(1);
+    } else {
+      meta.textContent = e.time || ''; t.textContent = '体重';
+      val.className = 'w'; val.textContent = Number(e.kg).toFixed(1) + ' kg';
+    }
+    var del = document.createElement('button'); del.className = 'del'; del.textContent = '删除';
+    del.addEventListener('click', function () { onDel(e); });
+    row.appendChild(meta); row.appendChild(t); row.appendChild(val); row.appendChild(del);
+    return row;
+  }
+  function renderDay() {
+    var detail = document.getElementById('dayDetail');
+    var dm = meals.filter(function (e) { return e.date === selDay; });
+    var dw = weights.filter(function (e) { return e.date === selDay; });
+    detail.innerHTML = '<h4>' + selDay + (dm.length || dw.length ? '' : ' · 无记录') + '</h4>';
+    if (!dm.length && !dw.length) {
+      var n = document.createElement('div'); n.className = 'none';
+      n.textContent = '去「记一笔」可以给这一天补记。'; detail.appendChild(n); return;
+    }
+    dw.forEach(function (e) { detail.appendChild(entryRow('w', e, function (x) {
+      weights = weights.filter(function (y) { return y.id !== x.id; }); persist(); renderCal(); renderDay();
+    })); });
+    dm.forEach(function (e) { detail.appendChild(entryRow('m', e, function (x) {
+      meals = meals.filter(function (y) { return y.id !== x.id; }); persist(); renderCal(); renderDay();
+    })); });
+  }
+  document.getElementById('prevM').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); renderCal(); });
+  document.getElementById('nextM').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); renderCal(); });
+  document.getElementById('todayB').addEventListener('click', function () {
+    view = new Date(); view.setDate(1); selDay = today; renderCal(); renderDay();
+  });
+
+  /* 记一笔 */
+  var fDate = document.getElementById('fDate'), fTime = document.getElementById('fTime');
+  var now = new Date();
+  fDate.value = today;
+  fTime.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  var recType = 'meal';
+  var tM = document.getElementById('typeMeal'), tW = document.getElementById('typeWeight');
+  function setType(t) {
+    recType = t;
+    tM.classList.toggle('on', t === 'meal'); tW.classList.toggle('on', t === 'weight');
+    document.getElementById('mealFields').style.display = t === 'meal' ? '' : 'none';
+    document.getElementById('weightFields').style.display = t === 'weight' ? '' : 'none';
+  }
+  tM.addEventListener('click', function () { setType('meal'); });
+  tW.addEventListener('click', function () { setType('weight'); });
+  document.getElementById('saveBtn').addEventListener('click', function () {
+    var date = fDate.value, time = fTime.value;
+    if (!date) { fDate.focus(); return; }
+    var id = Date.now() + '' + Math.floor(Math.random() * 1000);
+    if (recType === 'meal') {
+      var what = document.getElementById('fWhat').value.trim();
+      if (!what) { document.getElementById('fWhat').focus(); return; }
+      var pv = document.getElementById('fPrice').value;
+      meals.push({ id: id, date: date, time: time, meal: document.getElementById('fMeal').value, what: what, price: pv ? Number(pv) : null });
+      document.getElementById('fWhat').value = ''; document.getElementById('fPrice').value = '';
+    } else {
+      var kg = Number(document.getElementById('fWeight').value);
+      if (!kg || kg < 30 || kg > 200) { document.getElementById('fWeight').focus(); return; }
+      weights.push({ id: id, date: date, time: time, kg: kg });
+      document.getElementById('fWeight').value = '';
+    }
+    persist();
+    selDay = date;
+    view = new Date(date + 'T00:00:00'); view.setDate(1);
+    renderCal(); renderDay();
+    tabs.forEach(function (x) { x.classList.toggle('on', x.dataset.p === 'cal'); });
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('on'); });
+    document.getElementById('pg-cal').classList.add('on');
+  });
+
+  /* 导出 / 导入 */
+  document.getElementById('exportBtn').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify({ meals: meals, weights: weights }, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '减脂记录-' + today + '.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+    document.getElementById('syncHint').textContent = '已导出，把这个文件发到另一台设备后点「导入数据」。';
+  });
+  var importFile = document.getElementById('importFile');
+  document.getElementById('importBtn').addEventListener('click', function () { importFile.click(); });
+  importFile.addEventListener('change', function () {
+    var f = importFile.files && importFile.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var j = JSON.parse(r.result);
+        var im = Array.isArray(j.meals) ? j.meals : [];
+        var iw = Array.isArray(j.weights) ? j.weights : [];
+        var added = 0;
+        im.forEach(function (e) {
+          if (e && e.id && !meals.some(function (x) { return x.id === e.id; })) { meals.push(e); added++; }
+        });
+        iw.forEach(function (e) {
+          if (e && e.id && !weights.some(function (x) { return x.id === e.id; })) { weights.push(e); added++; }
+        });
+        persist(); renderCal(); renderDay();
+        document.getElementById('syncHint').textContent = '导入完成，新合并 ' + added + ' 条记录（重复的已自动跳过）。';
+      } catch (err) {
+        document.getElementById('syncHint').textContent = '导入失败：文件格式不对，请用本页面导出的 .json 文件。';
+      }
+      importFile.value = '';
+    };
+    r.readAsText(f);
+  });
+
+  /* 趋势 */
+  function renderTrend() {
+    var sorted = weights.slice().sort(function (a, b) {
+      return (a.date + (a.time || '')).localeCompare(b.date + (b.time || ''));
+    });
+    var stNow = document.getElementById('stNow'), stWeek = document.getElementById('stWeek'), stGoal = document.getElementById('stGoal');
+    var chart = document.getElementById('chart'), wl = document.getElementById('wlist');
+    chart.innerHTML = ''; wl.innerHTML = '';
+    if (!sorted.length) {
+      stNow.textContent = '—'; stWeek.textContent = '—'; stGoal.textContent = '—';
+      wl.innerHTML = '<div class="none">还没有体重记录，去「记一笔」添加。</div>'; return;
+    }
+    var last = sorted[sorted.length - 1].kg;
+    stNow.textContent = last.toFixed(1) + ' kg';
+    stGoal.textContent = (last - 75).toFixed(1) + ' kg';
+    var wa = new Date(); wa.setDate(wa.getDate() - 7);
+    var was = dstr(wa), prev = null;
+    sorted.forEach(function (e) { if (e.date <= was) prev = e.kg; });
+    if (prev !== null && sorted.length > 1) {
+      var diff = last - prev;
+      stWeek.textContent = (diff > 0 ? '+' : '') + diff.toFixed(1) + ' kg';
+      stWeek.style.color = diff <= 0 ? 'var(--ok)' : 'var(--danger)';
+    } else { stWeek.textContent = '—'; }
+
+    var pts = sorted.slice(-30);
+    var W = chart.clientWidth || 320, H = 150, P = 20;
+    var kgs = pts.map(function (e) { return e.kg; });
+    var min = Math.min.apply(null, kgs.concat([75])) - 0.5;
+    var max = Math.max.apply(null, kgs) + 0.5;
+    function X(i) { return P + (pts.length > 1 ? i * (W - 2 * P) / (pts.length - 1) : (W - 2 * P) / 2); }
+    function Y(v) { return H - P - (v - min) * (H - 2 * P) / (max - min); }
+    var ns = 'http://www.w3.org/2000/svg';
+    var gl = document.createElementNS(ns, 'line');
+    gl.setAttribute('x1', P); gl.setAttribute('x2', W - P);
+    gl.setAttribute('y1', Y(75)); gl.setAttribute('y2', Y(75));
+    gl.setAttribute('stroke', '#999'); gl.setAttribute('stroke-dasharray', '4 3');
+    chart.appendChild(gl);
+    var gt = document.createElementNS(ns, 'text');
+    gt.setAttribute('x', W - P); gt.setAttribute('y', Y(75) - 4);
+    gt.setAttribute('text-anchor', 'end'); gt.setAttribute('font-size', '10'); gt.setAttribute('fill', '#999');
+    gt.textContent = '目标 75'; chart.appendChild(gt);
+    if (pts.length > 1) {
+      var pl = document.createElementNS(ns, 'polyline');
+      pl.setAttribute('points', pts.map(function (e, i) { return X(i) + ',' + Y(e.kg); }).join(' '));
+      pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', '#2f6fed'); pl.setAttribute('stroke-width', '2');
+      chart.appendChild(pl);
+    }
+    pts.forEach(function (e, i) {
+      var c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', X(i)); c.setAttribute('cy', Y(e.kg)); c.setAttribute('r', '3'); c.setAttribute('fill', '#2f6fed');
+      chart.appendChild(c);
+    });
+    sorted.slice(-10).reverse().forEach(function (e) {
+      wl.appendChild(entryRow('w', e, function (x) {
+        weights = weights.filter(function (y) { return y.id !== x.id; }); persist(); renderTrend();
+      }));
+    });
+  }
+
+  renderCal(); renderDay();
+})();
+</script>
+</body>
+</html>
