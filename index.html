@@ -100,7 +100,7 @@
 <body>
 <div class="wrap">
   <h1>减脂餐 · 京东科技大厦</h1>
-  <div class="meta">88kg → 75kg · 每日骑行 5km · 美团企业版实测价（2026-10-13）· 数据存本机浏览器</div>
+  <div class="meta">88kg → 75kg · 每日骑行 5km · 美团企业版实测价（2026-10-13）· 云端同步</div>
 
   <div class="stats">
     <div class="stat"><div class="v">1900–2100</div><div class="l">每日热量 kcal</div></div>
@@ -113,6 +113,7 @@
     <button data-p="plan" class="on">一周餐单</button>
     <button data-p="shops">商家比价</button>
     <button data-p="cal">日历</button>
+    <button data-p="spend">花费</button>
     <button data-p="add">记一笔</button>
     <button data-p="trend">体重趋势</button>
   </div>
@@ -162,6 +163,16 @@
     <div class="day-detail" id="dayDetail"></div>
   </div>
 
+  <!-- 花费 -->
+  <div class="page" id="pg-spend">
+    <div class="stat-row">
+      <div class="stat"><div class="v" id="spToday">—</div><div class="l">今日已花</div></div>
+      <div class="stat"><div class="v" id="spLeft">—</div><div class="l">今日餐补剩余</div></div>
+      <div class="stat"><div class="v" id="spMonth">—</div><div class="l">本月总花费</div></div>
+    </div>
+    <div id="spList"></div>
+  </div>
+
   <!-- 记一笔 -->
   <div class="page" id="pg-add">
     <div class="form">
@@ -184,7 +195,7 @@
         <input id="fWeight" type="number" min="30" max="200" step="0.1" placeholder="体重 kg，如 87.6">
       </div>
       <button class="btn-primary" id="saveBtn">保存</button>
-      <div class="hint">日期时间默认当前，可改成任何一天补记。数据只存在这台设备的浏览器里。</div>
+      <div class="hint">日期时间默认当前，可改成任何一天补记。保存后自动同步云端，手机电脑都能看。</div>
     </div>
     <div class="form" style="margin-top:12px;">
       <div class="hint" style="font-weight:500;color:var(--sub);">同步状态</div>
@@ -281,6 +292,7 @@
       document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('on'); });
       document.getElementById('pg-' + b.dataset.p).classList.add('on');
       if (b.dataset.p === 'trend') renderTrend();
+      if (b.dataset.p === 'spend') renderSpend();
     });
   });
 
@@ -492,6 +504,52 @@
       wl.appendChild(entryRow('w', e, function (x) {
         weights = weights.filter(function (y) { return y.id !== x.id; }); persist(); renderTrend();
       }));
+    });
+  }
+
+  /* 花费 */
+  function fmtY(n) { return '¥' + (Math.round(n * 10) / 10).toFixed(1); }
+  function renderSpend() {
+    var BUDGET = 60;
+    var spToday = document.getElementById('spToday'), spLeft = document.getElementById('spLeft'),
+        spMonth = document.getElementById('spMonth'), list = document.getElementById('spList');
+    list.innerHTML = '';
+    var byDay = {};
+    meals.forEach(function (e) {
+      if (!e.price) return;
+      if (!byDay[e.date]) byDay[e.date] = { total: 0, items: [] };
+      byDay[e.date].total += Number(e.price);
+      byDay[e.date].items.push(e);
+    });
+    var t = byDay[today] ? byDay[today].total : 0;
+    spToday.textContent = fmtY(t);
+    var left = BUDGET - t;
+    spLeft.textContent = (left < 0 ? '超 ' : '') + fmtY(Math.abs(left));
+    spLeft.style.color = left < 0 ? 'var(--danger)' : 'var(--ok)';
+    var mk = today.slice(0, 7), msum = 0;
+    Object.keys(byDay).forEach(function (d) { if (d.slice(0, 7) === mk) msum += byDay[d].total; });
+    spMonth.textContent = fmtY(msum);
+    var days = Object.keys(byDay).sort().reverse();
+    if (!days.length) { list.innerHTML = '<div class="none">还没有带价格的记录，记一笔时填上「花费」就会自动汇总到这里。</div>'; return; }
+    days.forEach(function (d) {
+      var g = byDay[d];
+      var head = document.createElement('div');
+      head.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 2px;font-size:13px;';
+      var dt = document.createElement('span'); dt.style.fontWeight = '500'; dt.textContent = d;
+      var tt = document.createElement('span');
+      var over = g.total > BUDGET;
+      tt.style.cssText = 'font-variant-numeric:tabular-nums;color:' + (over ? 'var(--danger)' : 'var(--ok)') + ';';
+      tt.textContent = fmtY(g.total) + (over ? ' · 超餐补' : '');
+      head.appendChild(dt); head.appendChild(tt); list.appendChild(head);
+      g.items.forEach(function (e) {
+        var row = document.createElement('div'); row.className = 'entry';
+        var meta = document.createElement('span'); meta.className = 'm2';
+        meta.textContent = (e.meal || '') + (e.time ? ' ' + e.time : '');
+        var tx = document.createElement('span'); tx.className = 't'; tx.textContent = e.what;
+        var v = document.createElement('span'); v.className = 'p'; v.textContent = fmtY(Number(e.price));
+        row.appendChild(meta); row.appendChild(tx); row.appendChild(v);
+        list.appendChild(row);
+      });
     });
   }
 
