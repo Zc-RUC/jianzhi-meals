@@ -187,6 +187,7 @@
       <div id="mealFields">
         <div class="row" style="margin-bottom:8px;">
           <select id="fMeal"><option>早餐</option><option selected>午餐</option><option>晚餐</option><option>加餐</option></select>
+          <select id="fFund"><option value="meal" selected>餐补</option><option value="self">自费</option></select>
           <input id="fPrice" type="number" min="0" step="0.1" placeholder="花费 ¥（可空）">
         </div>
         <input id="fWhat" placeholder="吃了什么，如：麦田归来鸡胸碗">
@@ -195,6 +196,7 @@
         <input id="fWeight" type="number" min="30" max="200" step="0.1" placeholder="体重 kg，如 87.6">
       </div>
       <button class="btn-primary" id="saveBtn">保存</button>
+      <div class="hint" id="editHint" style="display:none;">正在修改一条记录，<a href="javascript:void 0" id="cancelEdit" style="color:var(--accent);">取消修改</a></div>
       <div class="hint">日期时间默认当前，可改成任何一天补记。保存后自动同步云端，手机电脑都能看。</div>
     </div>
     <div class="form" style="margin-top:12px;">
@@ -229,10 +231,10 @@
   /* 云端同步配置（Cloudflare Worker） */
   var CLOUD_URL = 'https://jianzhi-sync.zhangchong050812.workers.dev';
   var CLOUD_KEY = 'zc-0c1cd418c70b5d70';
-  var meals = [], weights = [];
+  var meals = [], weights = [], deleted = {};
   try {
     var raw = localStorage.getItem(LS);
-    if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; }
+    if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; deleted = j.deleted || {}; }
   } catch (e) {}
   function syncStatus(msg) {
     var el = document.getElementById('syncHint');
@@ -246,7 +248,7 @@
       fetch(CLOUD_URL + '/' + CLOUD_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meals: meals, weights: weights })
+        body: JSON.stringify({ meals: meals, weights: weights, deleted: deleted })
       }).then(function () { syncStatus('已同步到云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })); })
         .catch(function () { syncStatus('同步失败，数据已存本机，联网后保存任意记录会重试'); });
     }, 800);
@@ -255,26 +257,42 @@
     if (CLOUD_URL.indexOf('PLACEHOLDER') >= 0) { if (done) done(); return; }
     fetch(CLOUD_URL + '/' + CLOUD_KEY).then(function (r) { return r.json(); }).then(function (j) {
       var added = 0;
-      (j.meals || []).forEach(function (e) {
-        if (e && e.id && !meals.some(function (x) { return x.id === e.id; })) { meals.push(e); added++; }
+      /* 合并：新 id 直接加入；同 id 取 updatedAt 较新的一方（支持编辑同步） */
+      function merge(list, incoming) {
+        (incoming || []).forEach(function (e) {
+          if (!e || !e.id) return;
+          var idx = list.findIndex(function (x) { return x.id === e.id; });
+          if (idx < 0) { list.push(e); added++; }
+          else if ((e.updatedAt || 0) > (list[idx].updatedAt || 0)) { list[idx] = e; added++; }
+        });
+      }
+      var oldMeals = JSON.stringify(meals), oldWeights = JSON.stringify(weights), oldDeleted = JSON.stringify(deleted);
+      /* 删除标记合并：取较新的删除时间 */
+      var jd = j.deleted || {};
+      Object.keys(jd).forEach(function (id) {
+        if (!(id in deleted) || jd[id] > deleted[id]) deleted[id] = jd[id];
       });
-      (j.weights || []).forEach(function (e) {
-        if (e && e.id && !weights.some(function (x) { return x.id === e.id; })) { weights.push(e); added++; }
-      });
+      merge(meals, j.meals); merge(weights, j.weights);
+      /* 应用删除标记 */
+      meals = meals.filter(function (x) { return !(x.id in deleted) || (x.updatedAt || 0) > deleted[x.id]; });
+      weights = weights.filter(function (x) { return !(x.id in deleted) || (x.updatedAt || 0) > deleted[x.id]; });
       if (added) { persistLocal(); }
-      /* 若本机有云端没有的记录，回传云端，保证双向一致 */
-      var cloudMealIds = {}, cloudWeightIds = {};
-      (j.meals || []).forEach(function (e) { if (e && e.id) cloudMealIds[e.id] = 1; });
-      (j.weights || []).forEach(function (e) { if (e && e.id) cloudWeightIds[e.id] = 1; });
-      var needPush = meals.some(function (x) { return x.id && !cloudMealIds[x.id]; }) ||
-                     weights.some(function (x) { return x.id && !cloudWeightIds[x.id]; });
+      /* 若本机有更新（新记录或更新的编辑），回传云端 */
+      var needPush = JSON.stringify(meals) !== oldMeals || JSON.stringify(weights) !== oldWeights || JSON.stringify(deleted) !== oldDeleted;
+      if (!needPush) {
+        var cm = {}, cw = {};
+        (j.meals || []).forEach(function (e) { if (e && e.id) cm[e.id] = e.updatedAt || 0; });
+        (j.weights || []).forEach(function (e) { if (e && e.id) cw[e.id] = e.updatedAt || 0; });
+        needPush = meals.some(function (x) { return x.id && (!(x.id in cm) || (x.updatedAt || 0) > cm[x.id]); }) ||
+                   weights.some(function (x) { return x.id && (!(x.id in cw) || (x.updatedAt || 0) > cw[x.id]); });
+      }
       if (needPush) cloudPush();
       syncStatus(added ? ('已从云端合并 ' + added + ' 条记录') : '云端已是最新');
       if (done) done(added > 0);
     }).catch(function () { syncStatus('云端暂不可用，正在使用本机数据'); if (done) done(false); });
   }
   function persistLocal() {
-    try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights })); } catch (e) {}
+    try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights, deleted: deleted })); } catch (e) {}
   }
   function persist() {
     persistLocal();
@@ -330,22 +348,33 @@
       grid.appendChild(cell);
     }
   }
-  function entryRow(kind, e, onDel) {
+  function delRecord(arr, x) {
+    deleted[x.id] = Date.now();
+    return arr.filter(function (y) { return y.id !== x.id; });
+  }
+  function entryRow(kind, e, onDel, onEdit) {
     var row = document.createElement('div'); row.className = 'entry';
     var meta = document.createElement('span'); meta.className = 'm2';
     var t = document.createElement('span'); t.className = 't';
     var val = document.createElement('span');
     if (kind === 'm') {
       meta.textContent = (e.meal || '') + (e.time ? ' ' + e.time : '');
-      t.textContent = e.what; val.className = 'p';
+      t.textContent = e.what + (e.fund === 'self' ? '（自费）' : ''); val.className = 'p';
       if (e.price) val.textContent = '¥' + Number(e.price).toFixed(1);
     } else {
       meta.textContent = e.time || ''; t.textContent = '体重';
       val.className = 'w'; val.textContent = Number(e.kg).toFixed(1) + ' kg';
     }
+    var ed = null;
+    if (onEdit) {
+      ed = document.createElement('button'); ed.className = 'del'; ed.textContent = '改'; ed.style.color = 'var(--accent)';
+      ed.addEventListener('click', function () { onEdit(e); });
+    }
     var del = document.createElement('button'); del.className = 'del'; del.textContent = '删除';
     del.addEventListener('click', function () { onDel(e); });
-    row.appendChild(meta); row.appendChild(t); row.appendChild(val); row.appendChild(del);
+    row.appendChild(meta); row.appendChild(t); row.appendChild(val);
+    if (ed) row.appendChild(ed);
+    row.appendChild(del);
     return row;
   }
   function renderDay() {
@@ -358,11 +387,11 @@
       n.textContent = '去「记一笔」可以给这一天补记。'; detail.appendChild(n); return;
     }
     dw.forEach(function (e) { detail.appendChild(entryRow('w', e, function (x) {
-      weights = weights.filter(function (y) { return y.id !== x.id; }); persist(); renderCal(); renderDay();
-    })); });
+      weights = delRecord(weights, x); persist(); renderCal(); renderDay();
+    }, function (x) { startEdit('weight', x); })); });
     dm.forEach(function (e) { detail.appendChild(entryRow('m', e, function (x) {
-      meals = meals.filter(function (y) { return y.id !== x.id; }); persist(); renderCal(); renderDay();
-    })); });
+      meals = delRecord(meals, x); persist(); renderCal(); renderDay();
+    }, function (x) { startEdit('meal', x); })); });
   }
   document.getElementById('prevM').addEventListener('click', function () { view.setMonth(view.getMonth() - 1); renderCal(); });
   document.getElementById('nextM').addEventListener('click', function () { view.setMonth(view.getMonth() + 1); renderCal(); });
@@ -376,6 +405,8 @@
   fDate.value = today;
   fTime.value = pad(now.getHours()) + ':' + pad(now.getMinutes());
   var recType = 'meal';
+  var editingId = null;
+  var saveBtn = document.getElementById('saveBtn'), editHint = document.getElementById('editHint');
   var tM = document.getElementById('typeMeal'), tW = document.getElementById('typeWeight');
   function setType(t) {
     recType = t;
@@ -385,22 +416,56 @@
   }
   tM.addEventListener('click', function () { setType('meal'); });
   tW.addEventListener('click', function () { setType('weight'); });
-  document.getElementById('saveBtn').addEventListener('click', function () {
+  function clearEdit() {
+    editingId = null;
+    saveBtn.textContent = '保存';
+    editHint.style.display = 'none';
+    document.getElementById('fWhat').value = ''; document.getElementById('fPrice').value = '';
+    document.getElementById('fWeight').value = '';
+    var n = new Date();
+    fDate.value = today; fTime.value = pad(n.getHours()) + ':' + pad(n.getMinutes());
+  }
+  function startEdit(kind, e) {
+    editingId = e.id;
+    setType(kind);
+    fDate.value = e.date; fTime.value = e.time || '';
+    if (kind === 'meal') {
+      document.getElementById('fMeal').value = e.meal || '午餐';
+      document.getElementById('fFund').value = e.fund === 'self' ? 'self' : 'meal';
+      document.getElementById('fWhat').value = e.what || '';
+      document.getElementById('fPrice').value = e.price != null ? e.price : '';
+    } else {
+      document.getElementById('fWeight').value = e.kg;
+    }
+    saveBtn.textContent = '保存修改';
+    editHint.style.display = '';
+    tabs.forEach(function (x) { x.classList.toggle('on', x.dataset.p === 'add'); });
+    document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('on'); });
+    document.getElementById('pg-add').classList.add('on');
+  }
+  document.getElementById('cancelEdit').addEventListener('click', clearEdit);
+  saveBtn.addEventListener('click', function () {
     var date = fDate.value, time = fTime.value;
     if (!date) { fDate.focus(); return; }
-    var id = Date.now() + '' + Math.floor(Math.random() * 1000);
+    var id = editingId || (Date.now() + '' + Math.floor(Math.random() * 1000));
+    var upAt = Date.now();
     if (recType === 'meal') {
       var what = document.getElementById('fWhat').value.trim();
       if (!what) { document.getElementById('fWhat').focus(); return; }
       var pv = document.getElementById('fPrice').value;
-      meals.push({ id: id, date: date, time: time, meal: document.getElementById('fMeal').value, what: what, price: pv ? Number(pv) : null });
-      document.getElementById('fWhat').value = ''; document.getElementById('fPrice').value = '';
+      var rec = { id: id, date: date, time: time, meal: document.getElementById('fMeal').value,
+                  fund: document.getElementById('fFund').value,
+                  what: what, price: pv ? Number(pv) : null, updatedAt: upAt };
+      var mi = meals.findIndex(function (x) { return x.id === id; });
+      if (mi >= 0) meals[mi] = rec; else meals.push(rec);
     } else {
       var kg = Number(document.getElementById('fWeight').value);
       if (!kg || kg < 30 || kg > 200) { document.getElementById('fWeight').focus(); return; }
-      weights.push({ id: id, date: date, time: time, kg: kg });
-      document.getElementById('fWeight').value = '';
+      var wr = { id: id, date: date, time: time, kg: kg, updatedAt: upAt };
+      var wi = weights.findIndex(function (x) { return x.id === id; });
+      if (wi >= 0) weights[wi] = wr; else weights.push(wr);
     }
+    clearEdit();
     persist();
     selDay = date;
     view = new Date(date + 'T00:00:00'); view.setDate(1);
@@ -412,7 +477,7 @@
 
   /* 导出 / 导入 */
   document.getElementById('exportBtn').addEventListener('click', function () {
-    var blob = new Blob([JSON.stringify({ meals: meals, weights: weights }, null, 1)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ meals: meals, weights: weights, deleted: deleted }, null, 1)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = '减脂记录-' + today + '.json';
@@ -431,6 +496,10 @@
         var j = JSON.parse(r.result);
         var im = Array.isArray(j.meals) ? j.meals : [];
         var iw = Array.isArray(j.weights) ? j.weights : [];
+        var idel = j.deleted || {};
+        Object.keys(idel).forEach(function (id) {
+          if (!(id in deleted) || idel[id] > deleted[id]) deleted[id] = idel[id];
+        });
         var added = 0;
         im.forEach(function (e) {
           if (e && e.id && !meals.some(function (x) { return x.id === e.id; })) { meals.push(e); added++; }
@@ -502,8 +571,8 @@
     });
     sorted.slice(-10).reverse().forEach(function (e) {
       wl.appendChild(entryRow('w', e, function (x) {
-        weights = weights.filter(function (y) { return y.id !== x.id; }); persist(); renderTrend();
-      }));
+        weights = delRecord(weights, x); persist(); renderTrend();
+      }, function (x) { startEdit('weight', x); }));
     });
   }
 
@@ -517,18 +586,21 @@
     var byDay = {};
     meals.forEach(function (e) {
       if (!e.price) return;
-      if (!byDay[e.date]) byDay[e.date] = { total: 0, items: [] };
-      byDay[e.date].total += Number(e.price);
+      var f = e.fund === 'self' ? 'self' : 'meal';
+      if (!byDay[e.date]) byDay[e.date] = { meal: 0, self: 0, items: [] };
+      byDay[e.date][f] += Number(e.price);
       byDay[e.date].items.push(e);
     });
-    var t = byDay[today] ? byDay[today].total : 0;
-    spToday.textContent = fmtY(t);
-    var left = BUDGET - t;
+    var tg = byDay[today] || { meal: 0, self: 0 };
+    spToday.textContent = fmtY(tg.meal + tg.self);
+    spToday.title = '餐补 ' + fmtY(tg.meal) + ' · 自费 ' + fmtY(tg.self);
+    var left = BUDGET - tg.meal;
     spLeft.textContent = (left < 0 ? '超 ' : '') + fmtY(Math.abs(left));
     spLeft.style.color = left < 0 ? 'var(--danger)' : 'var(--ok)';
-    var mk = today.slice(0, 7), msum = 0;
-    Object.keys(byDay).forEach(function (d) { if (d.slice(0, 7) === mk) msum += byDay[d].total; });
-    spMonth.textContent = fmtY(msum);
+    var mk = today.slice(0, 7), mMeal = 0, mSelf = 0;
+    Object.keys(byDay).forEach(function (d) { if (d.slice(0, 7) === mk) { mMeal += byDay[d].meal; mSelf += byDay[d].self; } });
+    spMonth.textContent = fmtY(mMeal + mSelf);
+    spMonth.title = '餐补 ' + fmtY(mMeal) + ' · 自费 ' + fmtY(mSelf);
     var days = Object.keys(byDay).sort().reverse();
     if (!days.length) { list.innerHTML = '<div class="none">还没有带价格的记录，记一笔时填上「花费」就会自动汇总到这里。</div>'; return; }
     days.forEach(function (d) {
@@ -537,15 +609,16 @@
       head.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 2px;font-size:13px;';
       var dt = document.createElement('span'); dt.style.fontWeight = '500'; dt.textContent = d;
       var tt = document.createElement('span');
-      var over = g.total > BUDGET;
+      var over = g.meal > BUDGET;
       tt.style.cssText = 'font-variant-numeric:tabular-nums;color:' + (over ? 'var(--danger)' : 'var(--ok)') + ';';
-      tt.textContent = fmtY(g.total) + (over ? ' · 超餐补' : '');
+      tt.textContent = '餐补 ' + fmtY(g.meal) + (g.self ? ' · 自费 ' + fmtY(g.self) : '') + (over ? ' · 超餐补' : '');
       head.appendChild(dt); head.appendChild(tt); list.appendChild(head);
       g.items.forEach(function (e) {
         var row = document.createElement('div'); row.className = 'entry';
         var meta = document.createElement('span'); meta.className = 'm2';
         meta.textContent = (e.meal || '') + (e.time ? ' ' + e.time : '');
-        var tx = document.createElement('span'); tx.className = 't'; tx.textContent = e.what;
+        var tx = document.createElement('span'); tx.className = 't';
+        tx.textContent = e.what + (e.fund === 'self' ? '（自费）' : '');
         var v = document.createElement('span'); v.className = 'p'; v.textContent = fmtY(Number(e.price));
         row.appendChild(meta); row.appendChild(tx); row.appendChild(v);
         list.appendChild(row);
