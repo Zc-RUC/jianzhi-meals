@@ -187,13 +187,16 @@
       <div class="hint">日期时间默认当前，可改成任何一天补记。数据只存在这台设备的浏览器里。</div>
     </div>
     <div class="form" style="margin-top:12px;">
-      <div class="hint" style="font-weight:500;color:var(--sub);">手机 / 电脑之间同步</div>
-      <div class="row">
-        <button class="btn-primary" id="exportBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导出数据</button>
-        <button class="btn-primary" id="importBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导入数据</button>
-        <input id="importFile" type="file" accept=".json,application/json" style="display:none;">
-      </div>
-      <div class="hint" id="syncHint">在一台设备导出 → 发到另一台（隔空投送/微信文件传输）→ 导入，自动合并不重复。</div>
+      <div class="hint" style="font-weight:500;color:var(--sub);">同步状态</div>
+      <div class="hint" id="syncHint">正在连接云端…</div>
+      <details>
+        <summary class="hint" style="cursor:pointer;">手动备份（导出 / 导入）</summary>
+        <div class="row" style="margin-top:8px;">
+          <button class="btn-primary" id="exportBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导出数据</button>
+          <button class="btn-primary" id="importBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导入数据</button>
+          <input id="importFile" type="file" accept=".json,application/json" style="display:none;">
+        </div>
+      </details>
     </div>
   </div>
 
@@ -212,13 +215,59 @@
 <script>
 (function () {
   var LS = 'jianzhi-records-v1';
+  /* 云端同步配置（Cloudflare Worker） */
+  var CLOUD_URL = 'https://jianzhi-sync.zhangchong050812.workers.dev';
+  var CLOUD_KEY = 'zc-0c1cd418c70b5d70';
   var meals = [], weights = [];
   try {
     var raw = localStorage.getItem(LS);
     if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; }
   } catch (e) {}
-  function persist() {
+  function syncStatus(msg) {
+    var el = document.getElementById('syncHint');
+    if (el) el.textContent = msg;
+  }
+  var pushTimer = null;
+  function cloudPush() {
+    if (CLOUD_URL.indexOf('PLACEHOLDER') >= 0) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(function () {
+      fetch(CLOUD_URL + '/' + CLOUD_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meals: meals, weights: weights })
+      }).then(function () { syncStatus('已同步到云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })); })
+        .catch(function () { syncStatus('同步失败，数据已存本机，联网后保存任意记录会重试'); });
+    }, 800);
+  }
+  function cloudPull(done) {
+    if (CLOUD_URL.indexOf('PLACEHOLDER') >= 0) { if (done) done(); return; }
+    fetch(CLOUD_URL + '/' + CLOUD_KEY).then(function (r) { return r.json(); }).then(function (j) {
+      var added = 0;
+      (j.meals || []).forEach(function (e) {
+        if (e && e.id && !meals.some(function (x) { return x.id === e.id; })) { meals.push(e); added++; }
+      });
+      (j.weights || []).forEach(function (e) {
+        if (e && e.id && !weights.some(function (x) { return x.id === e.id; })) { weights.push(e); added++; }
+      });
+      if (added) { persistLocal(); }
+      /* 若本机有云端没有的记录，回传云端，保证双向一致 */
+      var cloudMealIds = {}, cloudWeightIds = {};
+      (j.meals || []).forEach(function (e) { if (e && e.id) cloudMealIds[e.id] = 1; });
+      (j.weights || []).forEach(function (e) { if (e && e.id) cloudWeightIds[e.id] = 1; });
+      var needPush = meals.some(function (x) { return x.id && !cloudMealIds[x.id]; }) ||
+                     weights.some(function (x) { return x.id && !cloudWeightIds[x.id]; });
+      if (needPush) cloudPush();
+      syncStatus(added ? ('已从云端合并 ' + added + ' 条记录') : '云端已是最新');
+      if (done) done(added > 0);
+    }).catch(function () { syncStatus('云端暂不可用，正在使用本机数据'); if (done) done(false); });
+  }
+  function persistLocal() {
     try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights })); } catch (e) {}
+  }
+  function persist() {
+    persistLocal();
+    cloudPush();
   }
   function pad(n) { return (n < 10 ? '0' : '') + n; }
   function dstr(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -447,6 +496,10 @@
   }
 
   renderCal(); renderDay();
+  /* 打开页面时从云端拉取合并 */
+  cloudPull(function (changed) {
+    if (changed) { renderCal(); renderDay(); }
+  });
 })();
 </script>
 </body>
