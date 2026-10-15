@@ -8,16 +8,16 @@
 <title>减脂餐 · 京东科技大厦</title>
 <style>
   :root {
-    --text: #1a1a1a; --sub: #6b6b6b; --faint: #9a9a9a;
+    --text: #1a1a1a; --sub: #595959; --faint: #737373;
     --border: #e5e5e5; --muted: #f5f5f5; --accent: #2f6fed;
     --ok: #1a9e54; --warn: #d97706; --danger: #dc2626;
     --bg: #fff; --onaccent: #fff;
   }
   [data-theme="dark"] {
-    --text:#eee; --sub:#aaa; --faint:#777; --border:#333; --muted:#262626; --accent:#5b8cff; --bg:#141414; --onaccent:#141414;
+    --text:#eee; --sub:#b8b8b8; --faint:#9a9a9a; --border:#333; --muted:#262626; --accent:#5b8cff; --bg:#141414; --onaccent:#141414;
   }
   @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --text:#eee; --sub:#aaa; --faint:#777; --border:#333; --muted:#262626; --accent:#5b8cff; --bg:#141414; --onaccent:#141414; }
+    :root:not([data-theme="light"]) { --text:#eee; --sub:#b8b8b8; --faint:#9a9a9a; --border:#333; --muted:#262626; --accent:#5b8cff; --bg:#141414; --onaccent:#141414; }
   }
   * { box-sizing: border-box; }
   body {
@@ -25,18 +25,18 @@
     color: var(--text); background: var(--bg);
   }
   .wrap { max-width: 720px; margin: 0 auto; padding: 16px 16px 48px; }
-  h1 { font-size: 20px; margin: 8px 0 2px; font-weight: 500; }
-  .meta { font-size: 12px; color: var(--faint); }
+  h1 { font-size: 26px; letter-spacing: -0.02em; margin: 8px 0 2px; font-weight: 500; }
+  .meta { font-size: 13px; color: var(--faint); }
   .stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 14px 0; }
-  .stat { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .stat { border-radius: 12px; padding: 10px 12px; background: var(--muted); }
   .stat .v { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; }
-  .stat .l { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .stat .l { font-size: 13px; color: var(--faint); margin-top: 2px; }
   .tabs { display: flex; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; }
   .tabs button {
-    border: 1px solid var(--border); background: none; color: var(--text);
+    border: none; background: var(--muted); color: var(--text);
     border-radius: 999px; padding: 5px 14px; font-size: 14px; cursor: pointer;
   }
-  .tabs button.on { background: var(--text); color: var(--onaccent); border-color: var(--text); }
+  .tabs button.on { background: var(--text); color: var(--onaccent); }
   .page { display: none; }
   .page.on { display: block; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -44,44 +44,44 @@
   td { padding: 8px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
   td.num, th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .meal { font-weight: 500; }
-  .sub { font-size: 11px; color: var(--faint); margin-top: 2px; }
+  .sub { font-size: 13px; color: var(--faint); margin-top: 2px; }
   .ok { color: var(--ok); } .warn { color: var(--warn); }
-  .note { font-size: 12px; color: var(--faint); line-height: 1.7; margin-top: 12px; }
+  .note { font-size: 13px; max-width: 60ch; color: var(--faint); line-height: 1.7; margin-top: 12px; }
 
   /* 日历 */
   .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   .cal-title { font-size: 15px; font-weight: 500; }
   .cal-nav button {
-    border: 1px solid var(--border); background: none; color: var(--text);
+    border: none; background: var(--muted); color: var(--text);
     border-radius: 8px; padding: 3px 10px; font-size: 13px; cursor: pointer; margin-left: 4px;
   }
   .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
-  .cal-dow { font-size: 11px; color: var(--faint); text-align: center; padding: 2px 0; }
+  .cal-dow { font-size: 13px; color: var(--faint); text-align: center; padding: 2px 0; }
   .cal-cell {
-    position: relative; height: 30px; border-radius: 8px; border: 1px solid transparent;
-    background: none; cursor: pointer; font-size: 12px; color: var(--text);
+    position: relative; height: 34px; border-radius: 8px; border: none;
+    background: none; cursor: pointer; font-size: 13px; color: var(--text);
     font-variant-numeric: tabular-nums; padding: 0 0 6px;
   }
   .cal-cell:hover { background: var(--muted); }
   .cal-cell.other { color: var(--faint); }
-  .cal-cell.today { border-color: var(--text); }
+  .cal-cell.today { background: var(--muted); font-weight: 600; }
   .cal-cell.sel { background: var(--text); color: var(--onaccent); }
   .dots { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; justify-content: center; gap: 3px; }
   .dot { width: 4px; height: 4px; border-radius: 50%; }
   .dot.m { background: var(--faint); } .dot.w { background: var(--accent); }
   .cal-cell.sel .dot { background: #fff; }
-  .day-detail { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+  .day-detail { margin-top: 16px; }
   .day-detail h4 { margin: 0 0 4px; font-size: 14px; font-weight: 500; }
   .entry { display: flex; align-items: baseline; gap: 8px; padding: 5px 8px; border-radius: 8px; font-size: 13px; }
   .entry .t { flex: 1; min-width: 0; word-break: break-all; }
   .entry .p { color: var(--sub); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .entry .w { color: var(--accent); font-weight: 500; white-space: nowrap; }
-  .entry .m2 { font-size: 11px; color: var(--faint); flex-shrink: 0; }
-  .del { border: none; background: none; color: var(--danger); cursor: pointer; font-size: 12px; padding: 0 4px; }
+  .entry .m2 { font-size: 13px; color: var(--faint); flex-shrink: 0; }
+  .del { border: none; background: none; color: var(--danger); cursor: pointer; font-size: 13px; padding: 0 4px; }
   .none { font-size: 13px; color: var(--faint); padding: 8px; }
 
   /* 表单 */
-  .form { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+  .form { background: var(--muted); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
   .row { display: flex; gap: 8px; }
   input, select {
     width: 100%; min-width: 0; padding: 8px 10px; font-size: 14px;
@@ -92,7 +92,7 @@
     padding: 9px 16px; font-size: 14px; cursor: pointer;
   }
   .btn-primary { color: var(--onaccent); }
-  .hint { font-size: 12px; color: var(--faint); }
+  .hint { font-size: 13px; color: var(--faint); }
   .stat-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
   .wlist { margin-top: 12px; }
   /* 时间轴 */
@@ -100,19 +100,19 @@
   .tl::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 2px; background: var(--border); }
   .tl-item { position: relative; padding: 6px 0 6px 8px; }
   .tl-item::before { content: ''; position: absolute; left: -16px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
-  .tl-date { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .tl-date { font-size: 13px; color: var(--faint); font-variant-numeric: tabular-nums; }
   .tl-row { display: flex; align-items: baseline; gap: 8px; margin-top: 1px; }
   .tl-kg { font-size: 15px; font-weight: 500; color: var(--accent); font-variant-numeric: tabular-nums; }
-  .tl-diff { font-size: 11px; font-variant-numeric: tabular-nums; }
+  .tl-diff { font-size: 13px; font-variant-numeric: tabular-nums; }
   .tl-diff.down { color: var(--ok); } .tl-diff.up { color: var(--danger); }
-  .tag { display:inline-block; font-size:11px; padding:1px 8px; border-radius:6px; background:rgba(26,158,84,.12); color:var(--ok); margin-left:4px; }
+  .tag { display:inline-block; font-size:12px; padding:1px 8px; border-radius:6px; background:rgba(26,158,84,.12); color:var(--ok); margin-left:4px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div style="display:flex;align-items:center;justify-content:space-between;">
     <h1>减脂餐 · 京东科技大厦</h1>
-    <button id="themeBtn" title="切换黑白模式" style="border:1px solid var(--border);background:none;color:var(--text);border-radius:999px;padding:4px 12px;font-size:13px;cursor:pointer;">☾</button>
+    <button id="themeBtn" title="切换黑白模式" style="border:none;background:var(--muted);color:var(--text);border-radius:999px;width:34px;height:30px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;"><span id="themeIcon" style="position:relative;display:inline-block;width:12px;height:12px;border-radius:50%;border:2px solid var(--text);overflow:hidden;"><i id="themeFill" style="position:absolute;inset:0;background:var(--text);display:block;"></i></span></button>
   </div>
   <div class="meta">88kg → 75kg · 每日骑行 5km · 美团企业版实测价（2026-10-13）· 云端同步</div>
 
@@ -219,8 +219,8 @@
       <details>
         <summary class="hint" style="cursor:pointer;">手动备份（导出 / 导入）</summary>
         <div class="row" style="margin-top:8px;">
-          <button class="btn-primary" id="exportBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导出数据</button>
-          <button class="btn-primary" id="importBtn" style="background:none;color:var(--text);border:1px solid var(--border);">导入数据</button>
+          <button class="btn-primary" id="exportBtn" style="background:var(--bg);color:var(--text);border:none;">导出数据</button>
+          <button class="btn-primary" id="importBtn" style="background:var(--bg);color:var(--text);border:none;">导入数据</button>
           <input id="importFile" type="file" accept=".json,application/json" style="display:none;">
         </div>
       </details>
@@ -244,15 +244,17 @@
   /* 主题切换：跟随系统(auto) → 浅色(light) → 深色(dark) 循环 */
   var THEME_LS = 'jianzhi-theme';
   var themeBtn = document.getElementById('themeBtn');
+  var themeFill = document.getElementById('themeFill');
   function applyTheme(t) {
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
     else { document.documentElement.removeAttribute('data-theme'); t = 'auto'; }
-    var dark = t === 'dark' || (t === 'auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    var label = { auto: '◐', light: '☾', dark: '☀' }[t];
+    /* 纯 CSS 图标：浅色=空心圆，深色=实心圆，跟随系统=左半填充 */
+    if (t === 'light') themeFill.style.clipPath = 'inset(0 100% 0 0)';
+    else if (t === 'dark') themeFill.style.clipPath = 'inset(0 0 0 0)';
+    else themeFill.style.clipPath = 'inset(0 50% 0 0)';
     var title = { auto: '跟随系统，点击切换浅色', light: '浅色，点击切换深色', dark: '深色，点击切换跟随系统' }[t];
-    themeBtn.textContent = label;
     themeBtn.title = title;
-    return dark;
+    return t;
   }
   applyTheme(localStorage.getItem(THEME_LS) || 'auto');
   themeBtn.addEventListener('click', function () {
@@ -665,16 +667,21 @@
     spMonth.title = '餐补 ' + fmtY(mMeal) + ' · 自费 ' + fmtY(mSelf);
     var days = Object.keys(byDay).sort().reverse();
     if (!days.length) { list.innerHTML = '<div class="none">还没有带价格的记录，记一笔时填上「花费」就会自动汇总到这里。</div>'; return; }
-    days.forEach(function (d) {
+    days.forEach(function (d, di) {
       var g = byDay[d];
-      var head = document.createElement('div');
-      head.style.cssText = 'display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 2px;font-size:13px;';
-      var dt = document.createElement('span'); dt.style.fontWeight = '500'; dt.textContent = d;
+      var head = document.createElement('button');
+      head.style.cssText = 'display:flex;width:100%;justify-content:space-between;align-items:center;margin:14px 0 2px;font-size:13px;border:none;background:var(--muted);border-radius:10px;padding:8px 12px;cursor:pointer;color:var(--text);text-align:left;';
+      var dt = document.createElement('span'); dt.style.fontWeight = '500';
+      var caret = document.createElement('span');
+      caret.style.cssText = 'display:inline-block;margin-right:6px;transition:transform .15s;font-variant-numeric:tabular-nums;';
+      dt.appendChild(caret);
+      dt.appendChild(document.createTextNode(d));
       var tt = document.createElement('span');
       var over = g.meal > BUDGET;
       tt.style.cssText = 'font-variant-numeric:tabular-nums;color:' + (over ? 'var(--danger)' : 'var(--ok)') + ';';
       tt.textContent = '餐补 ' + fmtY(g.meal) + (g.self ? ' · 自费 ' + fmtY(g.self) : '') + (over ? ' · 超餐补' : '');
       head.appendChild(dt); head.appendChild(tt); list.appendChild(head);
+      var body = document.createElement('div');
       g.items.forEach(function (e) {
         var row = document.createElement('div'); row.className = 'entry';
         var meta = document.createElement('span'); meta.className = 'm2';
@@ -683,8 +690,16 @@
         tx.textContent = e.what + (e.fund === 'self' ? '（自费）' : '');
         var v = document.createElement('span'); v.className = 'p'; v.textContent = fmtY(Number(e.price));
         row.appendChild(meta); row.appendChild(tx); row.appendChild(v);
-        list.appendChild(row);
+        body.appendChild(row);
       });
+      list.appendChild(body);
+      /* 折叠：默认只展开最新一天，点日期栏收起/展开 */
+      function setOpen(open) {
+        body.style.display = open ? '' : 'none';
+        caret.textContent = open ? '▾' : '▸';
+      }
+      setOpen(di === 0);
+      head.addEventListener('click', function () { setOpen(body.style.display === 'none'); });
     });
   }
 
