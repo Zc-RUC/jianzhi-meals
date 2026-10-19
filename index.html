@@ -148,6 +148,23 @@
     .stat .v { font-size: 19px; }
   }
   .tag { display:inline-block; font-size:13px; padding:2px 8px; border-radius:6px; background:var(--muted2); color:var(--sub); margin-left:6px; }
+
+  /* 周报 */
+  .rpt-head { display:flex; width:100%; justify-content:space-between; align-items:center; margin:14px 0 2px; font-size:13px; border:none; background:var(--muted); border-radius:10px; padding:8px 12px; cursor:pointer; color:var(--text); text-align:left; }
+  .rpt-head .t { font-weight:500; }
+  .rpt-head .d { color:var(--faint); font-variant-numeric:tabular-nums; }
+  .rpt-caret { display:inline-block; margin-right:6px; transition:transform .15s; }
+  .md { font-size:14px; color:var(--sub); line-height:1.8; padding:6px 4px 0; }
+  .md h1, .md h2, .md h3, .md h4 { color:var(--text); letter-spacing:-0.01em; margin:16px 0 6px; }
+  .md h1 { font-size:19px; } .md h2 { font-size:17px; } .md h3, .md h4 { font-size:15px; }
+  .md p { margin:6px 0; }
+  .md ul, .md ol { margin:6px 0 6px 20px; }
+  .md li { margin:3px 0; }
+  .md blockquote { margin:8px 0; padding:8px 12px; background:var(--muted); border-radius:10px; color:var(--faint); font-size:13px; }
+  .md hr { border:none; border-top:1px solid var(--border); margin:14px 0; }
+  .md table { font-size:13px; margin:8px 0; }
+  .md td, .md th { padding:6px 8px; }
+  .md strong { color:var(--text); }
 </style>
 </head>
 <body>
@@ -172,6 +189,7 @@
     <button data-p="spend">花费</button>
     <button data-p="add">记一笔</button>
     <button data-p="trend">体重趋势</button>
+    <button data-p="reports">周报</button>
   </div>
 
   <!-- 餐单 -->
@@ -279,6 +297,11 @@
     <svg id="chart" width="100%" height="150" role="img" aria-label="体重趋势图"></svg>
     <div class="wlist" id="wlist"></div>
   </div>
+
+  <!-- 周报 -->
+  <div class="page" id="pg-reports">
+    <div id="rptList"></div>
+  </div>
 </div>
 
 <script>
@@ -315,10 +338,10 @@
   /* 云端同步配置（Cloudflare Worker） */
   var CLOUD_URL = 'https://jianzhi-sync.zhangchong050812.workers.dev';
   var CLOUD_KEY = 'zc-0c1cd418c70b5d70';
-  var meals = [], weights = [], deleted = {};
+  var meals = [], weights = [], deleted = {}, reports = [];
   try {
     var raw = localStorage.getItem(LS);
-    if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; deleted = j.deleted || {}; }
+    if (raw) { var j = JSON.parse(raw); meals = j.meals || []; weights = j.weights || []; deleted = j.deleted || {}; reports = j.reports || []; }
   } catch (e) {}
   function syncStatus(msg) {
     var el = document.getElementById('syncHint');
@@ -332,7 +355,7 @@
       fetch(CLOUD_URL + '/' + CLOUD_KEY, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meals: meals, weights: weights, deleted: deleted })
+        body: JSON.stringify({ meals: meals, weights: weights, deleted: deleted, reports: reports })
       }).then(function () { syncStatus('已同步到云端 · ' + new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })); })
         .catch(function () { syncStatus('同步失败，数据已存本机，联网后保存任意记录会重试'); });
     }, 800);
@@ -341,6 +364,9 @@
     if (CLOUD_URL.indexOf('PLACEHOLDER') >= 0) { if (done) done(); return; }
     fetch(CLOUD_URL + '/' + CLOUD_KEY).then(function (r) { return r.json(); }).then(function (j) {
       var added = 0;
+      /* 周报：以云端为准（周报由定时任务写入云端） */
+      var oldReports = JSON.stringify(reports);
+      if (Array.isArray(j.reports)) reports = j.reports;
       /* 合并：新 id 直接加入；同 id 取 updatedAt 较新的一方（支持编辑同步） */
       function merge(list, incoming) {
         (incoming || []).forEach(function (e) {
@@ -360,7 +386,7 @@
       /* 应用删除标记 */
       meals = meals.filter(function (x) { return !(x.id in deleted) || (x.updatedAt || 0) > deleted[x.id]; });
       weights = weights.filter(function (x) { return !(x.id in deleted) || (x.updatedAt || 0) > deleted[x.id]; });
-      if (added) { persistLocal(); }
+      if (added || JSON.stringify(reports) !== oldReports) { persistLocal(); }
       /* 若本机有更新（新记录或更新的编辑），回传云端 */
       var needPush = JSON.stringify(meals) !== oldMeals || JSON.stringify(weights) !== oldWeights || JSON.stringify(deleted) !== oldDeleted;
       if (!needPush) {
@@ -376,7 +402,7 @@
     }).catch(function () { syncStatus('云端暂不可用，正在使用本机数据'); if (done) done(false); });
   }
   function persistLocal() {
-    try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights, deleted: deleted })); } catch (e) {}
+    try { localStorage.setItem(LS, JSON.stringify({ meals: meals, weights: weights, deleted: deleted, reports: reports })); } catch (e) {}
   }
   function persist() {
     persistLocal();
@@ -395,6 +421,7 @@
       document.getElementById('pg-' + b.dataset.p).classList.add('on');
       if (b.dataset.p === 'trend') renderTrend();
       if (b.dataset.p === 'spend') renderSpend();
+      if (b.dataset.p === 'reports') renderReports();
     });
   });
 
@@ -561,7 +588,7 @@
 
   /* 导出 / 导入 */
   document.getElementById('exportBtn').addEventListener('click', function () {
-    var blob = new Blob([JSON.stringify({ meals: meals, weights: weights, deleted: deleted }, null, 1)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ meals: meals, weights: weights, deleted: deleted, reports: reports }, null, 1)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = '减脂记录-' + today + '.json';
@@ -590,6 +617,9 @@
         });
         iw.forEach(function (e) {
           if (e && e.id && !weights.some(function (x) { return x.id === e.id; })) { weights.push(e); added++; }
+        });
+        (Array.isArray(j.reports) ? j.reports : []).forEach(function (e) {
+          if (e && e.id && !reports.some(function (x) { return x.id === e.id; })) { reports.push(e); added++; }
         });
         persist(); renderCal(); renderDay();
         document.getElementById('syncHint').textContent = '导入完成，新合并 ' + added + ' 条记录（重复的已自动跳过）。';
@@ -741,6 +771,73 @@
         caret.textContent = open ? '▾' : '▸';
       }
       setOpen(di === 0);
+      head.addEventListener('click', function () { setOpen(body.style.display === 'none'); });
+    });
+  }
+
+  /* 周报：Markdown 渲染（标题/加粗/列表/表格/引用/分割线） */
+  function mdRender(md) {
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function inl(s) { return esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); }
+    var out = [], lines = String(md || '').split('\n'), i = 0;
+    while (i < lines.length) {
+      var ln = lines[i];
+      if (/^\s*$/.test(ln)) { i++; continue; }
+      if (/^\s*---+\s*$/.test(ln)) { out.push('<hr>'); i++; continue; }
+      var h = ln.match(/^(#{1,4})\s+(.*)$/);
+      if (h) { out.push('<h' + h[1].length + '>' + inl(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+      if (/^\s*>/.test(ln)) {
+        var q = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) { q.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+        out.push('<blockquote>' + q.map(inl).join('<br>') + '</blockquote>'); continue;
+      }
+      if (/^\s*\|/.test(ln)) {
+        var rows = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) { rows.push(lines[i]); i++; }
+        var cells = rows.map(function (r) { return r.replace(/^\s*\||\|\s*$/g, '').split('|').map(function (c) { return c.trim(); }); });
+        var html = '<table><thead><tr>' + cells[0].map(function (c) { return '<th>' + inl(c) + '</th>'; }).join('') + '</tr></thead><tbody>';
+        for (var r = 1; r < cells.length; r++) {
+          if (cells[r].every(function (c) { return /^:?-{2,}:?$/.test(c); })) continue;
+          html += '<tr>' + cells[r].map(function (c) { return '<td>' + inl(c) + '</td>'; }).join('') + '</tr>';
+        }
+        out.push(html + '</tbody></table>'); continue;
+      }
+      if (/^\s*[-*]\s+/.test(ln)) {
+        var ul = [];
+        while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { ul.push('<li>' + inl(lines[i].replace(/^\s*[-*]\s+/, '')) + '</li>'); i++; }
+        out.push('<ul>' + ul.join('') + '</ul>'); continue;
+      }
+      if (/^\s*\d+[.、]\s*/.test(ln)) {
+        var ol = [];
+        while (i < lines.length && /^\s*\d+[.、]\s*/.test(lines[i])) { ol.push('<li>' + inl(lines[i].replace(/^\s*\d+[.、]\s*/, '')) + '</li>'); i++; }
+        out.push('<ol>' + ol.join('') + '</ol>'); continue;
+      }
+      out.push('<p>' + inl(ln) + '</p>'); i++;
+    }
+    return out.join('');
+  }
+  function renderReports() {
+    var list = document.getElementById('rptList');
+    list.innerHTML = '';
+    if (!reports.length) {
+      list.innerHTML = '<div class="none">还没有周报。每周日晚自动生成后会同步到这里。</div>'; return;
+    }
+    var sorted = reports.slice().sort(function (a, b) { return (b.createdAt || 0) - (a.createdAt || 0); });
+    sorted.forEach(function (r, ri) {
+      var head = document.createElement('button'); head.className = 'rpt-head';
+      var t = document.createElement('span'); t.className = 't';
+      var caret = document.createElement('span'); caret.className = 'rpt-caret';
+      t.appendChild(caret); t.appendChild(document.createTextNode(r.title || '周报'));
+      var d = document.createElement('span'); d.className = 'd'; d.textContent = r.date || '';
+      head.appendChild(t); head.appendChild(d); list.appendChild(head);
+      var body = document.createElement('div'); body.className = 'md';
+      body.innerHTML = mdRender(r.content);
+      list.appendChild(body);
+      function setOpen(open) {
+        body.style.display = open ? '' : 'none';
+        caret.textContent = open ? '▾' : '▸';
+      }
+      setOpen(ri === 0);
       head.addEventListener('click', function () { setOpen(body.style.display === 'none'); });
     });
   }
