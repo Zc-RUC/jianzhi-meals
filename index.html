@@ -846,6 +846,8 @@
   /* 打开页面时从云端拉取合并 */
   cloudPull(function (changed) {
     if (changed) { renderCal(); renderDay(); }
+    /* 云端拉取完成后刷新周报（reports 以云端为准，点快了也能看到） */
+    renderReports();
   });
 })();
 </script>
