@@ -1,5 +1,9 @@
 # 减脂餐 · 京东科技大厦
 
+**在线访问 → [zc-ruc.github.io/jianzhi-meals/](https://zc-ruc.github.io/jianzhi-meals/)**
+
+![screenshot](./screenshot.jpg)
+
 单文件减脂餐管理小站（移动端优先）：一周餐单 + 商家比价 + 记账 + 体重趋势 + 周报，数据本地存储 + 云端同步。
 
 ## 功能
@@ -14,7 +18,7 @@
 
 ## 使用
 
-单文件应用，无需构建：直接打开 `index.html`，或用任意静态托管（GitHub Pages / Cloudflare Pages）部署后访问。
+单文件应用，无需构建：直接打开 `index.html`。线上版由 GitHub Pages 托管（main 分支根目录）。
 
 数据默认存浏览器 localStorage；云端同步依赖配套的 Cloudflare Worker 端点（`jianzhi-sync.*.workers.dev`，为作者私有配置，复用时请替换为你自己的同步服务）。
 
