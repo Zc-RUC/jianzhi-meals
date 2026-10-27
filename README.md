@@ -1,3 +1,5 @@
+**[English](README.en.md) | 中文**
+
 # 减脂餐 · 京东科技大厦
 
 **在线访问 → [zc-ruc.github.io/jianzhi-meals/](https://zc-ruc.github.io/jianzhi-meals/)**
